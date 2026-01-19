@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bài Giảng Tương Tác</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts: Inter (iOS-like) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax Config & Load -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f8fafc;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Overlay */
+        .liquid-glass {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 50;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: auto;
+        }
+
+        .liquid-glass.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* Question Box (Redesigned) */
+        .question-box {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            width: 90%;
+            max-width: 480px;
+            max-width: 480px;
+            padding: 1.5rem;
+            max-height: 85vh;
+            /* Prevent overflow on small screens */
+            overflow-y: auto;
+            /* Enable scrolling */
+            scrollbar-width: thin;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            transform: scale(0.95) translateY(10px);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Gradient Border/Accent */
+        .question-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #6366f1, #d946ef);
+        }
+
+        .liquid-glass.active .question-box {
+            transform: scale(1) translateY(0);
+        }
+
+        /* Helpers */
+        .locked-controls {
+            pointer-events: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Hide Fullscreen Button for Chrome/Safari/Edge */
+        video::-webkit-media-controls-fullscreen-button {
+            display: none !important;
+        }
+
+        /* Theater Mode (Fake Fullscreen) */
+        .theater-mode {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            z-index: 9999;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            margin: 0 !important;
+            border-radius: 0 !important;
+        }
+
+        .theater-mode #video-container {
+            flex: 1;
+            width: 100%;
+            max-width: none;
+            aspect-ratio: unset;
+            margin: 0;
+            border-radius: 0;
+        }
+
+        /* Mobile Optimizations */
+        @media (max-width: 640px) {
+            .question-box {
+                width: 90%;
+                padding: 0.5rem !important;
+                /* Extremely compact padding */
+                border-radius: 12px;
+                max-height: 55vh !important;
+                /* Very aggressively short */
+            }
+
+            .question-box h3 {
+                /* q-text */
+                font-size: 0.9rem !important;
+                /* Smaller text */
+                margin-bottom: 0.25rem !important;
+                line-height: 1.25;
+            }
+
+            .question-box button {
+                padding: 0.4rem 0.5rem !important;
+                /* Tiny buttons */
+                font-size: 0.8rem !important;
+                min-height: auto !important;
+                border-radius: 8px !important;
+            }
+
+            .question-box img {
+                max-height: 80px !important;
+                /* Thumbnail size image */
+                margin-bottom: 0.25rem !important;
+            }
+
+            /* Hide the "Interactive Question" badge on very small screens to save space */
+            .question-box .uppercase {
+                font-size: 0.6rem !important;
+                padding: 0.1rem 0.4rem !important;
+            }
+
+            /* Tighten vertical spacing between options */
+            #q-options>* {
+                margin-bottom: 0.25rem !important;
+            }
+
+            #q-options>*:last-child {
+                margin-bottom: 0 !important;
+            }
+
+            /* Override Tailwind space-y-3 */
+            #q-options.space-y-3> :not([hidden])~ :not([hidden]) {
+                margin-top: 0 !important;
+            }
+
+            /* Compact feedback area */
+            #feedback {
+                padding-top: 0.5rem !important;
+            }
+
+            #fb-icon {
+                font-size: 1.25rem !important;
+                margin-bottom: 0 !important;
+            }
+
+            #fb-title {
+                font-size: 1rem !important;
+                margin-bottom: 0 !important;
+            }
+
+            #fb-message {
+                font-size: 0.8rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+        }
+
+        /* Question List Panel */
+        #question-list-panel {
+            position: absolute;
+            bottom: 90px;
+            left: 20px;
+            width: 320px;
+            max-height: 60vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 1.25rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            z-index: 45;
+            display: none;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .q-list-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            background: rgba(248, 250, 252, 0.8);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .q-list-item:hover {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .q-list-item.correct {
+            border-left: 4px solid #22c55e;
+        }
+
+        .q-list-item.wrong {
+            border-left: 4px solid #ef4444;
+        }
+
+        .q-list-item.pending {
+            border-left: 4px solid #cbd5e1;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen"
+        class="fixed inset-0 bg-gradient-to-br from-violet-400 via-fuchsia-300 to-indigo-400 z-[100] flex items-center justify-center p-4">
+        <!-- Glass Card -->
+        <div
+            class="bg-white/30 backdrop-blur-xl p-8 rounded-3xl w-full max-w-sm shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] border border-white/40 text-center relative overflow-hidden">
+
+            <!-- Decorative circle -->
+            <div class="absolute -top-10 -left-10 w-32 h-32 bg-purple-400/30 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-400/30 rounded-full blur-2xl"></div>
+
+            <div
+                class="w-20 h-20 bg-white/60 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg backdrop-blur-sm relative z-10 transition hover:scale-110 duration-300">
+                <i class="fas fa-user-graduate text-indigo-600 text-3xl"></i>
+            </div>
+
+            <h2 class="text-3xl font-extrabold text-white drop-shadow-sm mb-2">Vào Lớp Học</h2>
+            <p class="text-white/90 mb-8 font-medium">Nhập tên của bạn để bắt đầu hành trình</p>
+
+            <div class="space-y-4">
+                <input type="text" id="student-name"
+                    class="w-full px-5 py-3.5 bg-white/60 border border-white/50 rounded-xl focus:ring-4 focus:ring-indigo-300/50 focus:bg-white focus:outline-none placeholder-slate-500 font-semibold text-slate-800 transition-all shadow-inner"
+                    placeholder="Tên của bạn là gì?">
+
+                <button onclick="startSession()" id="btn-start"
+                    class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3.5 rounded-xl transition-all transform active:scale-95 shadow-lg shadow-indigo-500/40 flex items-center justify-center group">
+                    <span>BẮT ĐẦU NGAY</span>
+                    <i class="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                </button>
+            </div>
+
+            <p id="loading-text" class="text-white/90 font-medium mt-5 hidden animate-pulse">
+                <i class="fas fa-spinner fa-spin mr-2"></i> Đang kết nối bài giảng...
+            </p>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content" class="flex-1 flex flex-col relative hidden overflow-y-auto bg-slate-50">
+        <!-- Header -->
+        <div class="h-14 bg-white border-b flex items-center justify-between px-6 shadow-sm z-10">
+            <div class="font-bold text-slate-700"><i class="fas fa-play-circle mr-2 text-red-500"></i> Video Learning
+            </div>
+            <div class="text-sm font-medium text-slate-600">
+                Học sinh: <span id="display-name" class="text-blue-600">...</span>
+            </div>
+        </div>
+
+        <!-- PLAYER WRAPPER for Theater Mode -->
+        <div id="player-wrapper" class="w-full max-w-5xl mx-auto my-4 transition-all duration-300 relative">
+
+            <!-- Video Area -->
+            <div class="w-full aspect-video bg-black group shadow-2xl rounded-t-xl overflow-hidden relative"
+                id="video-container">
+
+                <!-- YouTube Player -->
+                <iframe id="youtube-player" class="w-full h-full"
+                    src="https://www.youtube.com/embed/697zdte1CQw?enablejsapi=1" title="YouTube video player"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
+                </iframe>
+
+                <!-- Question Overlay -->
+                <div id="overlay" class="liquid-glass">
+                    <div class="question-box">
+                        <div class="flex justify-between items-center mb-6">
+                            <span
+                                class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Câu
+                                hỏi tương tác</span>
+                            <span id="timer-display" class="text-slate-400 text-xs font-mono"></span>
+                        </div>
+
+                        <!-- Question Content -->
+                        <div id="q-content">
+                            <h3 id="q-text" class="text-lg font-bold text-slate-800 mb-3 leading-relaxed">...</h3>
+                            <div id="q-image-container" class="mb-4 hidden rounded-lg overflow-hidden border">
+                                <img id="q-image" class="w-full h-auto object-contain max-h-48">
+                            </div>
+                            <div id="q-options" class="space-y-3"></div>
+                        </div>
+
+                        <!-- Feedback -->
+                        <div id="feedback" class="hidden text-center pt-4 border-t border-slate-100">
+                            <div id="fb-icon" class="text-4xl mb-2"></div>
+                            <h4 id="fb-title" class="text-lg font-bold mb-1"></h4>
+                            <p id="fb-message" class="text-slate-500 text-sm mb-4"></p>
+                            <button onclick="continueVideo()"
+                                class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-black font-medium transition">
+                                Tiếp tục xem <i class="fas fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Question List Panel -->
+            <div id="question-list-panel">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-slate-700 text-lg">Danh sách câu hỏi</h3>
+                    <button onclick="toggleQuestionList()" class="text-slate-400 hover:text-slate-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="q-list-content" class="overflow-y-auto pr-2 custom-scrollbar flex-1 space-y-2">
+                    <!-- Items injected here -->
+                </div>
+            </div>
+
+            <!-- Custom Controls -->
+            <div
+                class="bg-slate-900 text-white p-4 flex items-center justify-between z-20 relative border-t border-slate-800 rounded-b-xl shadow-lg">
+                <!-- Spacer for center alignment -->
+                <div class="w-12 flex justify-start">
+                    <button onclick="toggleQuestionList()" class="text-slate-400 hover:text-white transition relative"
+                        title="Danh sách câu hỏi">
+                        <i class="fas fa-list-ul text-lg"></i>
+                        <span id="badge-count"
+                            class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-6">
+                    <button onclick="seekVideo(-5)"
+                        class="p-4 rounded-full bg-slate-800 hover:bg-slate-700 hover:text-blue-400 transition transform active:scale-95"
+                        title="Lùi 5s">
+                        <i class="fas fa-undo"></i>
+                    </button>
+
+                    <button onclick="togglePlay()" id="btn-toggle-play"
+                        class="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-2xl flex items-center justify-center transition transform active:scale-95 shadow-lg shadow-blue-900/50">
+                        <i class="fas fa-play ml-1"></i>
+                    </button>
+
+                    <button onclick="seekVideo(5)"
+                        class="p-4 rounded-full bg-slate-800 hover:bg-slate-700 hover:text-blue-400 transition transform active:scale-95"
+                        title="Tới 5s">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
+
+                <!-- Theater Toggle -->
+                <div class="w-12 flex justify-end">
+                    <button onclick="toggleTheater()" class="text-slate-400 hover:text-white transition"
+                        title="Mở rộng / Thu nhỏ">
+                        <i id="icon-theater" class="fas fa-expand text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- CẤU HÌNH ---
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwcQcwWd7DwE2_mlvndcrH-oTfhMhsEzCaAp2A_LUJVgARrwl8p5EiV29zEZNQVZGU4ug/exec';
+        const VIDEO_ID = '697zdte1CQw';
+        const SHEET_ID = '1Q13CpXvyejehNqw1LYrMtRTBeEuWSQK34UN9GOCJfUo'; // Universal ID
+
+        // --- STATE ---
+        let state = {
+            studentName: '',
+            questions: [],
+            answeredIds: [],
+            results: {}, // { qId: boolean (isCorrect) }
+            currentQ: null,
+            lastTime: 0
+        };
+
+        let timeInterval;
+        const videoContainer = document.getElementById('video-container');
+        const overlay = document.getElementById('overlay');
+        let ytPlayer = null;
+
+        // --- YOUTUBE API ---
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('youtube-player', {
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            console.log("YouTube Player Ready");
+        }
+
+        function onPlayerStateChange(event) {
+            // Update play icon based on state
+            if (event.data == YT.PlayerState.PLAYING) {
+                updatePlayIcon(true);
+            } else {
+                updatePlayIcon(false);
+            }
+        }
+
+        // --- LOCAL STORAGE & RESUME ---
+        const STORAGE_KEY_PREFIX = 'VID_LEARN_PROG_';
+        let restoreTime = 0;
+
+        function getStorageKey() {
+            // Unique key per student and video
+            return `${STORAGE_KEY_PREFIX}${state.studentName}_${VIDEO_ID}`;
+        }
+
+        function saveProgress() {
+            if (!state.studentName || !ytPlayer || !ytPlayer.getCurrentTime) return;
+
+            const data = {
+                studentName: state.studentName,
+                currentTime: ytPlayer.getCurrentTime(),
+                answeredIds: state.answeredIds,
+                results: state.results,
+                lastTime: state.lastTime,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(getStorageKey(), JSON.stringify(data));
+        }
+
+        function checkStorage(name) {
+            const key = `${STORAGE_KEY_PREFIX}${name}_${VIDEO_ID}`;
+            const raw = localStorage.getItem(key);
+            if (raw) return JSON.parse(raw);
+            return null;
+        }
+
+        function formatDuration(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        // --- INIT ---
+        function startSession() {
+            // 1. Validation (Sync)
+            const nameInput = document.getElementById('student-name');
+            const name = nameInput.value.trim();
+            if (!name) return alert("Vui lòng nhập tên!");
+
+            state.studentName = name;
+            document.getElementById('display-name').innerText = name;
+
+            // --- RESTORE CHECK ---
+            const saved = checkStorage(name);
+            if (saved) {
+                const timeStr = formatDuration(saved.currentTime);
+                const confirmResume = confirm(`Chào ${name}, bạn đang xem dở tại ${timeStr}.\nBạn có muốn tiếp tục không?`);
+                if (confirmResume) {
+                    state.answeredIds = saved.answeredIds || [];
+                    state.results = saved.results || {};
+                    state.lastTime = saved.currentTime; // Restore secure cursor
+                    restoreTime = saved.currentTime;
+                    // Render list immediately to reflect restored answers
+                } else {
+                    localStorage.removeItem(getStorageKey());
+                }
+            }
+
+            // 2. UI Switch (Sync)
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('loading-text').classList.remove('hidden');
+
+            // 3. User Interaction -> Trigger Video
+            activateMainScreen();
+
+            // 4. Data Fetch (Async - Fire & Forget)
+            fetchQuestions();
+        }
+
+        function activateMainScreen() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+
+            // iOS Critical: This must run in the same tick as the click
+            loadVideoSource();
+        }
+
+        async function fetchQuestions() {
+            try {
+                // Fetch Questions in background (UNIVERSAL: Send sheetId)
+                // Use GET to avoid Redirect/CORS issues with simple fetches
+                const fetchUrl = `${SCRIPT_URL}?action=getQuestions&sheetId=${SHEET_ID}`;
+                const res = await fetch(fetchUrl);
+                const data = await res.json();
+
+                // Silent error handling for questions so video keeps playing
+                if (data.error) console.error(data.error);
+
+                state.questions = (data.questions || []).sort((a, b) => a.timestamp - b.timestamp);
+                console.log("Loaded questions:", state.questions.length);
+
+                // If we restored state, update the list UI now that questions are loaded
+                if (state.answeredIds.length > 0) {
+                    renderQuestionList();
+                }
+
+            } catch (e) {
+                console.warn("Question load failed:", e);
+            }
+        }
+
+        // --- VIDEO PLAYER ---
+        function loadVideoSource() {
+            console.log("Interact setup complete. Waiting for player...");
+            // With YouTube, the src is already in the iframe. 
+            // We just ensure the timer is running and try to play if ready.
+            if (ytPlayer && ytPlayer.playVideo) {
+                if (restoreTime > 0) {
+                    ytPlayer.seekTo(restoreTime);
+                    restoreTime = 0; // Reset
+                }
+                ytPlayer.playVideo();
+            }
+            startTimer();
+        }
+
+        // --- TIMER & ANTI-SKIP ---
+        function startTimer() {
+            if (timeInterval) clearInterval(timeInterval);
+            timeInterval = setInterval(checkTime, 500);
+        }
+
+        function checkTime() {
+            if (!ytPlayer || !ytPlayer.getCurrentTime) return; // Exit if no player
+
+            if (overlay.classList.contains('active')) return;
+
+            // Use YouTube API
+            let currentTime = ytPlayer.getCurrentTime();
+
+            if (currentTime - state.lastTime > 1.5) {
+                const skippedQ = state.questions.find(q =>
+                    q.timestamp > state.lastTime && q.timestamp < currentTime && !state.answeredIds.includes(q.id)
+                );
+                if (skippedQ) {
+                    ytPlayer.seekTo(skippedQ.timestamp, true);
+                    triggerQuestion(skippedQ);
+                    alert("Bạn không thể bỏ qua câu hỏi này! (Anti-Skip Guard)");
+                    state.lastTime = skippedQ.timestamp;
+                    return;
+                }
+            }
+            state.lastTime = currentTime;
+
+            // Auto-save every approx 5s (10 ticks)
+            if (Math.floor(currentTime) % 5 === 0) {
+                saveProgress();
+            }
+
+            const q = state.questions.find(item =>
+                Math.abs(item.timestamp - currentTime) < 1.0 && !state.answeredIds.includes(item.id)
+            );
+            if (q) triggerQuestion(q);
+        }
+
+        // --- UI LOGIC ---
+        function triggerQuestion(q) {
+            if (ytPlayer) ytPlayer.pauseVideo();
+
+            videoContainer.classList.add('locked-controls');
+            overlay.classList.add('active');
+            state.currentQ = q;
+            document.getElementById('q-text').innerHTML = q.question;
+            const img = document.getElementById('q-image');
+            if (q.imageUrl) { img.src = q.imageUrl; document.getElementById('q-image-container').classList.remove('hidden'); }
+            else document.getElementById('q-image-container').classList.add('hidden');
+
+            const optsDiv = document.getElementById('q-options');
+            optsDiv.innerHTML = '';
+            document.getElementById('q-content').classList.remove('hidden');
+            document.getElementById('feedback').classList.add('hidden');
+
+            if (q.type === 'mc') {
+                const labels = ['A', 'B', 'C', 'D', 'E'];
+                if (Array.isArray(q.options)) {
+                    q.options.forEach((opt, idx) => {
+                        const btn = document.createElement('button');
+                        // Modern Button Style
+                        btn.className = "w-full text-left p-3 rounded-xl transition-all duration-200 font-medium text-sm text-slate-700 flex items-center group relative overflow-hidden bg-white border border-slate-200 hover:border-transparent hover:shadow-lg hover:shadow-indigo-500/10";
+
+                        // Hover Gradient Background
+                        btn.innerHTML = `
+                            <div class="absolute inset-0 bg-gradient-to-r from-indigo-50 to-violet-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <span class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mr-4 font-bold text-sm z-10 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300 shadow-sm">${labels[idx] || idx}</span>
+                            <span class="z-10 relative group-hover:text-indigo-900">${opt}</span>
+                            <i class="fas fa-chevron-right ml-auto opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-indigo-400 z-10"></i>
+                        `;
+                        btn.onclick = () => submitAnswer(idx);
+                        optsDiv.appendChild(btn);
+                    });
+                }
+            } else {
+                const input = document.createElement('input');
+                input.className = "w-full p-4 border rounded-xl mb-3 focus:ring-2 focus:ring-blue-500 outline-none";
+                input.placeholder = "Nhập câu trả lời...";
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700";
+                btn.innerText = "GỬI TRẢ LỜI";
+                btn.onclick = () => submitAnswer(input.value);
+                optsDiv.append(input, btn);
+            }
+
+            // LaTeX Formatting
+            if (window.MathJax) {
+                MathJax.typesetPromise([document.getElementById('q-content')]).catch(e => console.warn(e));
+            }
+        }
+
+        async function submitAnswer(ans) {
+            const q = state.currentQ;
+            state.answeredIds.push(q.id);
+            let isCorrect = false;
+            if (String(ans).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase()) isCorrect = true;
+            if (typeof ans === 'number' && ans == q.correctAnswer) isCorrect = true;
+
+            // Save result
+            state.results[q.id] = isCorrect;
+            saveProgress(); // Save immediately on answer
+            renderQuestionList(); // Update list live
+
+            document.getElementById('q-content').classList.add('hidden');
+            const fb = document.getElementById('feedback');
+            fb.classList.remove('hidden');
+
+            if (isCorrect) {
+                document.getElementById('fb-icon').innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
+                document.getElementById('fb-title').innerText = "Chính xác!";
+                document.getElementById('fb-title').className = "text-xl font-bold text-green-600 mb-1";
+                document.getElementById('fb-message').innerText = "Bạn đã trả lời đúng.";
+            } else {
+                document.getElementById('fb-icon').innerHTML = '<i class="fas fa-times-circle text-red-500"></i>';
+                document.getElementById('fb-title').innerText = "Chưa chính xác";
+                document.getElementById('fb-title').className = "text-xl font-bold text-red-600 mb-1";
+                document.getElementById('fb-message').innerHTML = `Đáp án đúng: <b>${formatAnswer(q.correctAnswer)}</b>`;
+            }
+
+            // UNIVERSAL: Send sheetId
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'submitAnswer', questionId: q.id, studentName: state.studentName, answer: ans, isCorrect: isCorrect, sheetId: SHEET_ID })
+            }).catch(console.warn);
+        }
+
+        function continueVideo() {
+            overlay.classList.remove('active');
+            videoContainer.classList.remove('locked-controls');
+            if (ytPlayer) ytPlayer.playVideo();
+        }
+
+        function togglePlay() {
+            if (!ytPlayer) return;
+            const state = ytPlayer.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) {
+                ytPlayer.pauseVideo();
+            } else {
+                ytPlayer.playVideo();
+            }
+        }
+
+        function updatePlayIcon(playing) {
+            const btn = document.getElementById('btn-toggle-play');
+            btn.innerHTML = playing ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play ml-1"></i>';
+        }
+
+        function seekVideo(amount) {
+            if (!ytPlayer) return;
+            let currentTime = ytPlayer.getCurrentTime();
+            let duration = ytPlayer.getDuration();
+
+            let targetTime = Math.max(0, Math.min(currentTime + amount, duration));
+            if (amount > 0) {
+                const obstacle = state.questions.find(q => q.timestamp > currentTime + 0.5 && q.timestamp <= targetTime && !state.answeredIds.includes(q.id));
+                if (obstacle) targetTime = obstacle.timestamp;
+            }
+            ytPlayer.seekTo(targetTime, true);
+        }
+
+        // --- NEW: THEATER MODE ---
+        function toggleTheater() {
+            const wrapper = document.getElementById('player-wrapper');
+            const icon = document.getElementById('icon-theater');
+            wrapper.classList.toggle('theater-mode');
+
+            if (wrapper.classList.contains('theater-mode')) {
+                icon.className = 'fas fa-compress text-xl';
+            } else {
+                icon.className = 'fas fa-expand text-xl';
+            }
+        }
+
+        // --- QUESTION LIST ---
+        function toggleQuestionList() {
+            const panel = document.getElementById('question-list-panel');
+            if (panel.style.display === 'flex') {
+                panel.style.display = 'none';
+            } else {
+                renderQuestionList();
+                panel.style.display = 'flex';
+            }
+        }
+
+        function renderQuestionList() {
+            const container = document.getElementById('q-list-content');
+            container.innerHTML = '';
+
+            const total = state.questions.length;
+            let answeredCount = 0;
+
+            state.questions.forEach((q, idx) => {
+                const isAnswered = state.answeredIds.includes(q.id);
+                if (isAnswered) answeredCount++;
+                const isCorrect = state.results[q.id] === true;
+
+                const div = document.createElement('div');
+                let statusClass = 'pending';
+                let icon = '<i class="fas fa-lock text-slate-400"></i>';
+                let statusText = 'Chưa làm';
+
+                if (isAnswered) {
+                    if (isCorrect) {
+                        statusClass = 'correct';
+                        icon = '<i class="fas fa-check-circle text-green-500"></i>';
+                        statusText = 'Đúng';
+                    } else {
+                        statusClass = 'wrong';
+                        icon = '<i class="fas fa-times-circle text-red-500"></i>';
+                        statusText = 'Sai';
+                    }
+                }
+
+                div.className = `q-list-item ${statusClass}`;
+                div.innerHTML = `
+                    <div class="mr-3 text-lg">${icon}</div>
+                    <div class="flex-1">
+                        <div class="font-bold text-slate-700 text-sm">Câu hỏi ${idx + 1}</div>
+                        <div class="text-xs text-slate-500">${formatTime(q.timestamp)} - ${statusText}</div>
+                    </div>
+                `;
+
+                div.onclick = () => {
+                    if (isAnswered || state.answeredIds.length >= idx) {
+                        if (ytPlayer) ytPlayer.seekTo(q.timestamp, true);
+                    }
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        // Helpers
+        function formatAnswer(val) { return (!isNaN(val) && val < 5) ? ['A', 'B', 'C', 'D', 'E'][val] : val; }
+
+        // Block Fullscreen
+        document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) { document.exitFullscreen().catch(console.warn); alert("Chế độ toàn màn hình bị khóa!"); } });
+        document.addEventListener('keydown', (e) => { if (e.key === 'F11') { e.preventDefault(); alert("Chế độ toàn màn hình bị khóa!"); } });
+    </script>
+</body>
+
+</html>
