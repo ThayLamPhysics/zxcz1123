@@ -1,0 +1,1 @@
+// No server-side script needed for static hosting
